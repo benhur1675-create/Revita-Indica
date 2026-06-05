@@ -1,1 +1,878 @@
 
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <meta name="theme-color" content="#2C3E1A"/>
+  <title>Revita Indica</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #F7F5F0; }
+    select, input, button { font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+
+// ─── LOGO ─────────────────────────────────────────────────────────────────────
+function LogoImg({ size }) {
+  const s = size || 42;
+  return (
+    <div style={{width:s,height:s,borderRadius:"50%",background:"#A8D070",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:Math.round(s*0.38),fontWeight:700,color:"#2C3E1A",fontFamily:"Georgia,serif"}}>
+      R
+    </div>
+  );
+}
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CFG = {
+  whatsapp: "5517996063323",
+  desconto: 15,
+  minCompra: 80,
+  programa: "Revita Indica",
+  senhaAdmin: "revita2024",
+  baseUrl: "https://revita-indica.vercel.app",
+  metas: [
+    { compras: 20, credito: 300, label: "Bronze", icon: "🥉", cor: "#CD7F32" },
+    { compras: 30, credito: 350, label: "Prata",  icon: "🥈", cor: "#A0A0A0" },
+    { compras: 40, credito: 400, label: "Ouro",   icon: "🥇", cor: "#E65100" },
+  ],
+};
+
+// ─── PARCEIROS ────────────────────────────────────────────────────────────────
+const PARCEIROS = [
+  { id: "fitness-plus",    nome: "Academia Fitness Plus",    tipo: "Academia",         loja: "Zona Norte", cor: "#2E6B3A", pin: "1234" },
+  { id: "studio-forma",    nome: "Studio Forma",             tipo: "Studio",           loja: "JK",         cor: "#4A5C2E", pin: "2345" },
+  { id: "crossfit-rp",     nome: "CrossFit Rio Preto",       tipo: "CrossFit",         loja: "JK",         cor: "#8B3A1A", pin: "3456" },
+  { id: "personal-carlos", nome: "Personal Carlos Eduardo",  tipo: "Personal Trainer", loja: "Zona Norte", cor: "#1A5C8B", pin: "4567" },
+  { id: "pilates-damha",   nome: "Studio Pilates Bem Estar", tipo: "Studio",           loja: "Damha",      cor: "#8B4A6B", pin: "5678" },
+  { id: "power-body",      nome: "Academia Power Body",      tipo: "Academia",         loja: "JK",         cor: "#5B7B2E", pin: "6789" },
+  { id: "nutri-ana",       nome: "Dra. Ana Lima — Nutrição", tipo: "Nutricionista",    loja: "JK",         cor: "#1A6B5C", pin: "7890" },
+  { id: "nutri-silva",     nome: "Dr. Silva Nutricionista",  tipo: "Nutricionista",    loja: "Zona Norte", cor: "#2E8B57", pin: "8901" },
+];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const mesAtual = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+const agora = () => new Date().toLocaleString('pt-BR');
+const dataHoje = () => new Date().toLocaleDateString('pt-BR');
+const gerarCodigo = (pid) => { const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r=''; for(let i=0;i<4;i++) r+=c[Math.floor(Math.random()*c.length)]; return `REV-${r}`; };
+const tipoIcon = t => t==="Academia"?"🏋️":t==="CrossFit"?"⚡":t==="Personal Trainer"?"👤":t==="Nutricionista"?"🥗":"🧘";
+const calcMeta = n => { const m=[...CFG.metas].reverse(); for(const x of m) if(n>=x.compras) return x; return null; };
+const proxMeta = n => { for(const x of CFG.metas) if(n<x.compras) return x; return null; };
+const fmtR = n => `R$${Number(n).toFixed(0)}`;
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+const db = {
+  get(k) { try { const r=localStorage.getItem(k); return r?JSON.parse(r):[]; } catch{ return []; } },
+  set(k,v) { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} },
+  addCliente(c) { const l=db.get('clientes'); l.unshift(c); db.set('clientes',l); },
+  addCompra(c) { const l=db.get('compras'); l.unshift(c); db.set('compras',l); },
+  getClientes() { return db.get('clientes'); },
+  getCompras() { return db.get('compras'); },
+};
+
+// ─── SHARED UI ────────────────────────────────────────────────────────────────
+function Header({ sub, right, cor }) {
+  return (
+    <div style={{background:cor||"linear-gradient(135deg,#2C3E1A,#4A5C2E)",padding:"16px 20px"}}>
+      <div style={{maxWidth:520,margin:"0 auto",display:"flex",alignItems:"center",gap:10}}>
+        <LogoImg size={42}/>
+        <div style={{flex:1}}>
+          <div style={{fontSize:17,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>revita</div>
+          <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:2,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>{sub||CFG.programa}</div>
+        </div>
+        {right}
+      </div>
+    </div>
+  );
+}
+
+function Btn({ onClick, children, variant="primary", disabled, small }) {
+  const bg = variant==="secondary"?"transparent":variant==="ghost"?"transparent":variant==="green"?"#25D366":variant==="danger"?"#e74c3c":"linear-gradient(135deg,#2C3E1A,#4A5C2E)";
+  const color = variant==="secondary"?"#4A5C2E":variant==="ghost"?"#aaa":"#fff";
+  const border = variant==="secondary"?"1.5px solid #4A5C2E":variant==="ghost"?"1px solid #eee":"none";
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{background:bg,color:color,border:border,borderRadius:10,
+        padding:small?"8px 16px":"13px 0",fontSize:small?12:14,
+        cursor:disabled?"not-allowed":"pointer",fontFamily:"Arial,sans-serif",
+        fontWeight:700,width:small?undefined:"100%",opacity:disabled?0.6:1}}>
+      {children}
+    </button>
+  );
+}
+
+function Input({ label, value, onChange, placeholder, type="text" }) {
+  return (
+    <div style={{marginBottom:14}}>
+      {label&&<label style={{fontSize:11,fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing:.8,fontFamily:"Arial,sans-serif",display:"block",marginBottom:6}}>{label}</label>}
+      <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type}
+        style={{width:"100%",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 14px",fontSize:15,fontFamily:"Arial,sans-serif",outline:"none",boxSizing:"border-box"}}/>
+    </div>
+  );
+}
+
+function Card({ children, style, onClick }) {
+  const base = {background:"#fff",borderRadius:14,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,0.07)",cursor:onClick?"pointer":"default"};
+  const merged = Object.assign({}, base, style || {});
+  return (
+    <div onClick={onClick} style={merged}>
+      {children}
+    </div>
+  );
+}
+
+function MetaBar({ compras, label }) {
+  const m = proxMeta(compras);
+  const atual = calcMeta(compras);
+  if (!m && !atual) return null;
+  const base = atual?.compras||0;
+  const target = m?.compras||CFG.metas[CFG.metas.length-1].compras;
+  const pct = m ? Math.min(((compras-base)/(m.compras-base))*100,100) : 100;
+  return (
+    <div style={{background:"#F0F7EB",borderRadius:10,padding:"10px 12px"}}>
+      {m && <div style={{fontSize:12,color:"#4A5C2E",fontFamily:"Arial,sans-serif",marginBottom:5}}>
+        Faltam <strong>{m.compras-compras} compras</strong> para {m.icon} Meta {m.label} (R${m.credito})
+      </div>}
+      {!m && <div style={{fontSize:12,color:"#E65100",fontFamily:"Arial,sans-serif",fontWeight:700,marginBottom:5}}>🥇 Meta Ouro atingida!</div>}
+      <div style={{height:6,background:"#C8E6C9",borderRadius:3}}>
+        <div style={{height:6,background:atual?.cor||"#4A5C2E",borderRadius:3,width:`${pct}%`,transition:"width .3s"}}/>
+      </div>
+      <div style={{fontSize:10,color:"#888",fontFamily:"Arial,sans-serif",marginTop:4}}>
+        {compras}/{target} compras
+      </div>
+    </div>
+  );
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+function PaginaHome({ setTela, setParceiroAtivo }) {
+  useEffect(() => {
+    const hash = window.location.hash.replace('#','');
+    const m = hash.match(/ref\/([a-z0-9-]+)/);
+    if (m) { const p=PARCEIROS.find(x=>x.id===m[1]); if(p){setParceiroAtivo(p);setTela('cadastro');} }
+  }, []);
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0"}}>
+      <Header sub="Programa de Indicação"/>
+      <div style={{maxWidth:480,margin:"0 auto",padding:"32px 20px 40px"}}>
+
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <div style={{fontSize:28,fontWeight:700,color:"#1A2E0A",marginBottom:10,fontFamily:"Georgia,serif"}}>Revita Indica</div>
+          <div style={{fontSize:14,color:"#666",fontFamily:"Arial,sans-serif",lineHeight:1.8}}>
+            Programa exclusivo para academias, personal trainers e nutricionistas.<br/>
+            Indique clientes e ganhe <strong style={{color:"#4A5C2E"}}>créditos em produtos</strong> todo mês.
+          </div>
+        </div>
+
+        {/* Cards de benefício */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:28}}>
+          {CFG.metas.map((m,i)=>(
+            <div key={i} style={{background:"#fff",borderRadius:14,padding:"14px 10px",textAlign:"center",
+              boxShadow:"0 2px 10px rgba(0,0,0,0.07)",borderTop:`3px solid ${m.cor}`}}>
+              <div style={{fontSize:22,marginBottom:4}}>{m.icon}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#1A2E0A",fontFamily:"Arial,sans-serif"}}>R${m.credito}</div>
+              <div style={{fontSize:10,color:"#888",fontFamily:"Arial,sans-serif"}}>{m.compras} compras/mês</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Botão principal - Parceiro */}
+        <div onClick={()=>setTela('parceiro-login')}
+          style={{background:"linear-gradient(135deg,#2C3E1A,#4A5C2E)",borderRadius:16,padding:"22px 20px",
+            marginBottom:12,cursor:"pointer",boxShadow:"0 4px 16px rgba(74,92,46,.3)",
+            display:"flex",alignItems:"center",gap:14}}>
+          <div style={{width:52,height:52,background:"rgba(255,255,255,.15)",borderRadius:14,
+            display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:26}}>🏋️</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:17,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>Sou Parceiro</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.7)",fontFamily:"Arial,sans-serif",marginTop:2}}>
+              Academia, personal trainer ou nutricionista
+            </div>
+          </div>
+          <div style={{fontSize:24,color:"rgba(255,255,255,.4)"}}>›</div>
+        </div>
+
+        <button onClick={()=>setTela('admin-login')}
+          style={{width:"100%",background:"transparent",border:"1px solid #ddd",borderRadius:10,
+            padding:"11px",fontSize:12,color:"#aaa",cursor:"pointer",fontFamily:"Arial,sans-serif",marginTop:4}}>
+          🔐 Acesso Admin / Vendedoras
+        </button>
+
+        <div style={{marginTop:24,background:"#F0F7EB",borderRadius:14,padding:"14px 16px"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#4A5C2E",fontFamily:"Arial,sans-serif",marginBottom:4}}>
+            💡 Como funciona para o cliente:
+          </div>
+          <div style={{fontSize:12,color:"#555",fontFamily:"Arial,sans-serif",lineHeight:1.7}}>
+            O parceiro (academia, personal trainer ou nutricionista) mostra o QR code → cliente escaneia e se cadastra → ganha <strong>{CFG.desconto}% de desconto</strong> em todas as compras acima de R${CFG.minCompra}. Sem limite de uso mensal.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CADASTRO CLIENTE ─────────────────────────────────────────────────────────
+function PaginaCadastro({ parceiro, setTela, setDadosVoucher }) {
+  const [nome, setNome] = useState("");
+  const [wpp, setWpp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const submit = () => {
+    if (!nome.trim()||nome.trim().length<3){setErro("Digite seu nome completo");return;}
+    if (wpp.replace(/\D/g,'').length<10){setErro("WhatsApp inválido — inclua o DDD");return;}
+    setErro(""); setLoading(true);
+    const codigo = gerarCodigo(parceiro.id);
+    const cliente = { id: codigo, codigo, nome:nome.trim(), whatsapp:wpp.trim(),
+      parceiroId:parceiro.id, parceiro:parceiro.nome, loja:parceiro.loja,
+      mes:mesAtual(), data:dataHoje(), cadastroAt:agora() };
+    db.addCliente(cliente);
+    // Notify WhatsApp
+    const msg = encodeURIComponent(`🌿 *Nova Indicação — Revita Indica*\n\n👤 Cliente: ${nome.trim()}\n🏋️ Parceiro: ${parceiro.nome}\n🎟️ Código: ${codigo}\n💰 ${CFG.desconto}% de desconto em compras acima de R$${CFG.minCompra}\n\n✅ Confirme para registrar!`);
+    window.open(`https://wa.me/${CFG.whatsapp}?text=${msg}`,'_blank');
+    setTimeout(()=>{ setLoading(false); setDadosVoucher(cliente); setTela('voucher'); },800);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0"}}>
+      <Header sub={parceiro.nome}/>
+      <div style={{maxWidth:480,margin:"0 auto",padding:"24px 20px 40px"}}>
+        <button onClick={()=>setTela('home')} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#888",fontFamily:"Arial,sans-serif",marginBottom:20,padding:0}}>← Voltar</button>
+        <div style={{background:`${parceiro.cor}12`,borderRadius:14,padding:"16px 18px",marginBottom:20,borderLeft:`4px solid ${parceiro.cor}`}}>
+          <div style={{fontSize:10,color:parceiro.cor,textTransform:"uppercase",letterSpacing:1,fontFamily:"Arial,sans-serif",fontWeight:700,marginBottom:4}}>Indicado por</div>
+          <div style={{fontSize:20,fontWeight:700,color:"#1A2E0A",fontFamily:"Georgia,serif"}}>{parceiro.nome}</div>
+          <div style={{fontSize:12,color:"#888",fontFamily:"Arial,sans-serif"}}>{parceiro.tipo} • Loja {parceiro.loja}</div>
+        </div>
+        <Card style={{marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:700,color:"#1A2E0A",marginBottom:6}}>Cadastre-se e ganhe seu desconto</div>
+          <div style={{background:"#F0F7EB",borderRadius:10,padding:"12px",marginBottom:18}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#4A5C2E",fontFamily:"Arial,sans-serif"}}>🎟️ {CFG.desconto}% de desconto em todas as compras</div>
+            <div style={{fontSize:12,color:"#666",fontFamily:"Arial,sans-serif",marginTop:3}}>Compras acima de R${CFG.minCompra} • Sem limite de uso mensal</div>
+          </div>
+          <Input label="Seu nome completo" value={nome} onChange={setNome} placeholder="Ex: Maria da Silva"/>
+          <Input label="WhatsApp com DDD" value={wpp} onChange={setWpp} placeholder="17 99999-9999" type="tel"/>
+          {erro&&<div style={{color:"#e74c3c",fontSize:12,fontFamily:"Arial,sans-serif",marginBottom:12}}>⚠️ {erro}</div>}
+          <Btn onClick={submit} disabled={loading}>{loading?"Gerando voucher... 🎟️":`Quero meu desconto de ${CFG.desconto}% →`}</Btn>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── VOUCHER CLIENTE ──────────────────────────────────────────────────────────
+function PaginaVoucher({ dados, setTela }) {
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0"}}>
+      <Header/>
+      <div style={{maxWidth:480,margin:"0 auto",padding:"20px 20px 40px"}}>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:44,marginBottom:6}}>🎉</div>
+          <div style={{fontSize:20,fontWeight:700,color:"#1A2E0A"}}>Seu voucher está pronto!</div>
+          <div style={{fontSize:13,color:"#888",fontFamily:"Arial,sans-serif"}}>Mostre este código sempre que for comprar</div>
+        </div>
+        <div style={{background:"linear-gradient(135deg,#2C3E1A,#4A5C2E)",borderRadius:20,padding:"24px",marginBottom:16,boxShadow:"0 8px 28px rgba(74,92,46,.35)",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:-20,right:-20,width:90,height:90,background:"rgba(255,255,255,.06)",borderRadius:"50%"}}/>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18}}>
+            <LogoImg size={32}/>
+            <div style={{fontSize:14,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>revita <span style={{fontSize:9,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",fontWeight:400,display:"block"}}>{CFG.programa}</span></div>
+          </div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,.6)",textTransform:"uppercase",letterSpacing:1,marginBottom:4,fontFamily:"Arial,sans-serif"}}>Código do voucher</div>
+          <div style={{fontSize:34,fontWeight:700,color:"#A8D070",fontFamily:"monospace",letterSpacing:3,marginBottom:16}}>{dados.codigo}</div>
+          <div style={{background:"rgba(255,255,255,.12)",borderRadius:10,padding:"12px"}}>
+            {[["Cliente",dados.nome,"#fff"],["Indicado por",dados.parceiro,"#A8D070"],["Desconto",`${CFG.desconto}% acima de R$${CFG.minCompra}`,"#fff"],["Uso","Ilimitado no mês ∞","#A8D070"]].map(([k,v,c],i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:i<3?7:0}}>
+                <span style={{fontSize:11,color:"rgba(255,255,255,.55)",fontFamily:"Arial,sans-serif"}}>{k}</span>
+                <span style={{fontSize:11,color:c,fontFamily:"Arial,sans-serif",fontWeight:700,maxWidth:"60%",textAlign:"right"}}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <Card style={{marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1A2E0A",marginBottom:10}}>📋 Como usar:</div>
+          {[`Vá à Revita Muffato ${dados.loja}`,`Compre acima de R$${CFG.minCompra}`,`Mostre este voucher — ${dados.codigo}`,`Ganhe ${CFG.desconto}% de desconto! 🎉`,"Use toda vez que comprar!"].map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:10,marginBottom:i<4?7:0,alignItems:"flex-start"}}>
+              <div style={{width:20,height:20,background:i===4?"#A8D070":"#4A5C2E",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{fontSize:10,color:"#fff",fontWeight:700}}>{i===4?"∞":i+1}</span>
+              </div>
+              <span style={{fontSize:12,color:i===4?"#4A5C2E":"#555",fontFamily:"Arial,sans-serif",fontWeight:i===4?700:400}}>{s}</span>
+            </div>
+          ))}
+        </Card>
+        <Btn onClick={()=>setTela('home')} variant="ghost">Início</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ─── BUSCA VOUCHER CLIENTE ────────────────────────────────────────────────────
+function PaginaBuscaVoucher({ setTela, setDadosVoucher }) {
+  const [wpp, setWpp] = useState("");
+  const [erro, setErro] = useState("");
+
+  const buscar = () => {
+    const clientes = db.getClientes();
+    const nums = wpp.replace(/\D/g,'');
+    const c = clientes.find(x => x.whatsapp.replace(/\D/g,'').includes(nums) && nums.length>=8);
+    if (c) { setDadosVoucher(c); setTela('voucher'); }
+    else setErro("Cadastro não encontrado. Peça ao seu parceiro para indicar você.");
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0"}}>
+      <Header/>
+      <div style={{maxWidth:480,margin:"0 auto",padding:"32px 20px 40px"}}>
+        <button onClick={()=>setTela('home')} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"#888",fontFamily:"Arial,sans-serif",marginBottom:24,padding:0}}>← Voltar</button>
+        <Card>
+          <div style={{fontSize:16,fontWeight:700,color:"#1A2E0A",marginBottom:6}}>Acessar meu voucher</div>
+          <div style={{fontSize:13,color:"#888",fontFamily:"Arial,sans-serif",marginBottom:16}}>Digite o WhatsApp cadastrado para encontrar seu voucher.</div>
+          <Input label="Seu WhatsApp" value={wpp} onChange={setWpp} placeholder="17 99999-9999" type="tel"/>
+          {erro&&<div style={{color:"#e74c3c",fontSize:12,fontFamily:"Arial,sans-serif",marginBottom:12}}>⚠️ {erro}</div>}
+          <Btn onClick={buscar}>Buscar meu voucher</Btn>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── PARCEIRO LOGIN ───────────────────────────────────────────────────────────
+function PaginaParceiroLogin({ setTela, setParceiroAtivo }) {
+  const [sel, setSel] = useState("");
+  const [pin, setPin] = useState("");
+  const [erro, setErro] = useState("");
+
+  const entrar = () => {
+    const p = PARCEIROS.find(x=>x.id===sel);
+    if (!p){setErro("Selecione seu nome");return;}
+    if (p.pin!==pin){setErro("PIN incorreto");return;}
+    setParceiroAtivo(p); setTela('parceiro-portal');
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0",display:"flex",flexDirection:"column"}}>
+      <Header sub="Portal do Parceiro"/>
+      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+        <Card style={{width:"100%",maxWidth:360}}>
+          <div style={{fontSize:20,fontWeight:700,color:"#1A2E0A",marginBottom:4,textAlign:"center"}}>🏋️ Acesso Parceiro</div>
+          <div style={{fontSize:13,color:"#888",fontFamily:"Arial,sans-serif",textAlign:"center",marginBottom:20}}>Academia, personal trainer ou nutricionista? Entre para ver seu progresso.</div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing:.8,fontFamily:"Arial,sans-serif",display:"block",marginBottom:6}}>Seu nome</label>
+            <select value={sel} onChange={e=>setSel(e.target.value)}
+              style={{width:"100%",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 14px",fontSize:14,fontFamily:"Arial,sans-serif",outline:"none",boxSizing:"border-box",background:"#fff"}}>
+              <option value="">Selecione...</option>
+              {PARCEIROS.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
+          </div>
+          <Input label="PIN de acesso" value={pin} onChange={setPin} placeholder="4 dígitos" type="password"/>
+          {erro&&<div style={{color:"#e74c3c",fontSize:12,fontFamily:"Arial,sans-serif",marginBottom:12}}>⚠️ {erro}</div>}
+          <Btn onClick={entrar}>Entrar no Portal</Btn>
+          <button onClick={()=>setTela('home')} style={{width:"100%",background:"transparent",border:"none",fontSize:12,color:"#aaa",cursor:"pointer",fontFamily:"Arial,sans-serif",marginTop:8}}>Voltar</button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── PARCEIRO PORTAL ─────────────────────────────────────────────────────────
+function PaginaParceiroPortal({ parceiro, setTela }) {
+  const [compras, setCompras] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [todos, setTodos] = useState([]);
+  const mes = mesAtual();
+  const linkCadastro = `${CFG.baseUrl}#ref/${parceiro.id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(linkCadastro)}&size=200x200&color=2C3E1A&bgcolor=FFFFFF&margin=10`;
+
+  useEffect(()=>{
+    const load = () => {
+      const c = db.getCompras();
+      const cl = db.getClientes();
+      const ta = db.getCompras();
+      setCompras(c.filter(x=>x.parceiroId===parceiro.id&&x.mes===mes));
+      setClientes(cl.filter(x=>x.parceiroId===parceiro.id));
+      // All partners stats for ranking
+      const allP = PARCEIROS.map(p=>({
+        ...p, comprasMes: ta.filter(x=>x.parceiroId===p.id&&x.mes===mes).length
+      })).sort((a,b)=>b.comprasMes-a.comprasMes);
+      setTodos(allP);
+    };
+    load();
+  },[parceiro.id,mes]);
+
+  const metaAtual = calcMeta(compras.length);
+  const clientesMes = clientes.filter(x=>x.mes===mes).length;
+  const top3 = todos.slice(0,3);
+  const minhaPosicao = todos.findIndex(x=>x.id===parceiro.id)+1;
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0"}}>
+      <Header sub={parceiro.nome} right={
+        <button onClick={()=>setTela('home')} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Arial,sans-serif"}}>Sair</button>
+      }/>
+      <div style={{maxWidth:520,margin:"0 auto",padding:"20px 16px 40px"}}>
+
+        {/* RESUMO DO MÊS */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+          {[
+            {label:"Compras mês",valor:compras.length,icon:"🛒"},
+            {label:"Clientes mês",valor:clientesMes,icon:"👥"},
+            {label:"Posição rank",valor:`#${minhaPosicao}`,icon:"🏆"},
+          ].map((m,i)=>(
+            <Card key={i} style={{textAlign:"center",padding:"12px 8px"}}>
+              <div style={{fontSize:20,marginBottom:4}}>{m.icon}</div>
+              <div style={{fontSize:20,fontWeight:700,color:"#1A2E0A",fontFamily:"Arial,sans-serif"}}>{m.valor}</div>
+              <div style={{fontSize:10,color:"#888",fontFamily:"Arial,sans-serif"}}>{m.label}</div>
+            </Card>
+          ))}
+        </div>
+
+        {/* META ATUAL */}
+        <Card style={{marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A"}}>Seu progresso — {mes}</div>
+            {metaAtual&&<div style={{background:`${metaAtual.cor}20`,borderRadius:20,padding:"3px 12px",fontSize:12,fontWeight:700,color:metaAtual.cor}}>{metaAtual.icon} {metaAtual.label} — R${metaAtual.credito}</div>}
+          </div>
+          <MetaBar compras={compras.length}/>
+          {metaAtual&&(
+            <div style={{marginTop:10,background:"#F0F7EB",borderRadius:10,padding:"10px 12px"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#4A5C2E",fontFamily:"Arial,sans-serif"}}>✅ Você atingiu a {metaAtual.icon} Meta {metaAtual.label}!</div>
+              <div style={{fontSize:12,color:"#666",fontFamily:"Arial,sans-serif",marginTop:2}}>Crédito disponível: <strong>R${metaAtual.credito} em produtos</strong>. Fale com a Revita para usar!</div>
+            </div>
+          )}
+          {!metaAtual&&compras.length===0&&(
+            <div style={{marginTop:10,fontSize:12,color:"#aaa",fontFamily:"Arial,sans-serif",textAlign:"center"}}>Compartilhe seu QR code para começar a acumular compras 👇</div>
+          )}
+        </Card>
+
+        {/* QR CODE */}
+        <Card style={{marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",marginBottom:4}}>📱 Seu QR code de indicação</div>
+          <div style={{fontSize:12,color:"#888",fontFamily:"Arial,sans-serif",marginBottom:14}}>Mostre para o cliente escanear e se cadastrar</div>
+          <img src={qrUrl} alt="QR Code" style={{width:180,height:180,borderRadius:12,border:"2px solid #E8F5E9",margin:"0 auto",display:"block"}}/>
+          <div style={{marginTop:12,background:"#F5F5F5",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#555",fontFamily:"monospace",wordBreak:"break-all"}}>{linkCadastro}</div>
+          <div style={{marginTop:12,display:"flex",gap:8}}>
+            <button onClick={()=>navigator.clipboard?.writeText(linkCadastro)}
+              style={{flex:1,background:"#F0F7EB",border:"1px solid #4A5C2E33",borderRadius:8,padding:"8px",fontSize:11,color:"#4A5C2E",cursor:"pointer",fontFamily:"Arial,sans-serif",fontWeight:700}}>
+              📋 Copiar link
+            </button>
+            <a href={`https://wa.me/?text=${encodeURIComponent(`Olá! Acesse o link para cadastrar e ganhar ${CFG.desconto}% de desconto na Revita Produtos Naturais: ${linkCadastro}`)}`}
+              target="_blank" rel="noreferrer"
+              style={{flex:1,background:"#25D366",border:"none",borderRadius:8,padding:"8px",fontSize:11,color:"#fff",cursor:"pointer",fontFamily:"Arial,sans-serif",fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              📲 Enviar link
+            </a>
+          </div>
+        </Card>
+
+        {/* RANKING TOP 3 */}
+        <Card style={{marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",marginBottom:14}}>🏆 Top 3 do Mês</div>
+          {top3.map((p,i)=>{
+            const isMe = p.id===parceiro.id;
+            return (
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,marginBottom: i<2?8:0,
+                background:isMe?"linear-gradient(135deg,#2C3E1A,#4A5C2E)":"#F9F9F9",
+                border:isMe?"none":`1px solid #eee`}}>
+                <span style={{fontSize:20}}>{i===0?"🥇":i===1?"🥈":"🥉"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:isMe?"#fff":"#1A2E0A",fontFamily:"Arial,sans-serif"}}>{p.nome} {isMe&&"(você)"}</div>
+                  <div style={{fontSize:11,color:isMe?"rgba(255,255,255,.6)":"#aaa",fontFamily:"Arial,sans-serif"}}>{p.tipo}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:18,fontWeight:700,color:isMe?"#A8D070":"#4A5C2E",fontFamily:"Arial,sans-serif"}}>{p.comprasMes}</div>
+                  <div style={{fontSize:9,color:isMe?"rgba(255,255,255,.5)":"#aaa",fontFamily:"Arial,sans-serif"}}>compras</div>
+                </div>
+              </div>
+            );
+          })}
+          {minhaPosicao>3&&(
+            <div style={{marginTop:8,background:"#FFF3E0",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:18}}>📍</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#E65100",fontFamily:"Arial,sans-serif"}}>Você está na #{minhaPosicao}ª posição</div>
+                <div style={{fontSize:11,color:"#888",fontFamily:"Arial,sans-serif"}}>Compartilhe mais para subir no ranking!</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:18,fontWeight:700,color:"#E65100"}}>{compras.length}</div>
+                <div style={{fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>compras</div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* ÚLTIMAS COMPRAS */}
+        {compras.length>0&&(
+          <Card>
+            <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",marginBottom:12}}>Compras registradas este mês</div>
+            {compras.slice(0,10).map((c,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<Math.min(compras.length-1,9)?"1px solid #f0f0f0":"none"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1A2E0A",fontFamily:"Arial,sans-serif"}}>{c.nomeCliente}</div>
+                  <div style={{fontSize:10,color:"#aaa",fontFamily:"Arial,sans-serif"}}>{c.data} • {c.codigo}</div>
+                </div>
+                <div style={{fontSize:13,fontWeight:700,color:"#4A5C2E"}}>{fmtR(c.valor)}</div>
+              </div>
+            ))}
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN LOGIN ──────────────────────────────────────────────────────────────
+function PaginaAdminLogin({ setTela }) {
+  const [senha, setSenha] = useState("");
+  const entrar = () => { if(senha===CFG.senhaAdmin) setTela('admin'); else alert("Senha incorreta"); };
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0",display:"flex",flexDirection:"column"}}>
+      <Header sub="Acesso Administrativo"/>
+      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+        <Card style={{width:"100%",maxWidth:360}}>
+          <div style={{fontSize:20,fontWeight:700,color:"#1A2E0A",marginBottom:4,textAlign:"center"}}>🔐 Admin</div>
+          <div style={{fontSize:13,color:"#888",fontFamily:"Arial,sans-serif",textAlign:"center",marginBottom:20}}>Painel Revita Indica</div>
+          <Input label="Senha" value={senha} onChange={setSenha} placeholder="senha de acesso" type="password"/>
+          <Btn onClick={entrar}>Entrar</Btn>
+          <button onClick={()=>setTela('home')} style={{width:"100%",background:"transparent",border:"none",fontSize:12,color:"#aaa",cursor:"pointer",fontFamily:"Arial,sans-serif",marginTop:8}}>Voltar</button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN PAINEL ─────────────────────────────────────────────────────────────
+function PaginaAdmin({ setTela }) {
+  const [aba, setAba] = useState("registrar");
+  const [compras, setCompras] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const mes = mesAtual();
+
+  const reload = useCallback(() => {
+    setCompras(db.getCompras());
+    setClientes(db.getClientes());
+  },[]);
+
+  useEffect(()=>{ reload(); },[reload]);
+
+  const comprasMes = compras.filter(x=>x.mes===mes);
+  const clientesMes = clientes.filter(x=>x.mes===mes);
+  const receita = comprasMes.reduce((a,c)=>a+Number(c.valor),0);
+
+  const abas = [
+    {id:"registrar",label:"Registrar",icon:"✅"},
+    {id:"clientes",label:"Clientes",icon:"👥"},
+    {id:"parceiros",label:"Parceiros",icon:"🏆"},
+    {id:"dashboard",label:"Dashboard",icon:"📊"},
+  ];
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F7F5F0"}}>
+      <Header sub="Painel Admin" right={
+        <button onClick={()=>setTela('home')} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",cursor:"pointer",fontSize:11,fontFamily:"Arial,sans-serif"}}>Sair</button>
+      }/>
+
+      {/* ABAS */}
+      <div style={{background:"#fff",borderBottom:"1px solid #eee",position:"sticky",top:0,zIndex:90,display:"flex"}}>
+        {abas.map(a=>(
+          <button key={a.id} onClick={()=>setAba(a.id)}
+            style={{flex:1,padding:"12px 4px",border:"none",background:"transparent",cursor:"pointer",
+              borderBottom:aba===a.id?"3px solid #4A5C2E":"3px solid transparent",
+              color:aba===a.id?"#4A5C2E":"#aaa",fontFamily:"Arial,sans-serif",fontSize:10,fontWeight:700,
+              textTransform:"uppercase",letterSpacing:.5,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+            <span style={{fontSize:16}}>{a.icon}</span>{a.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{maxWidth:520,margin:"0 auto",padding:"16px 16px 40px"}}>
+        {aba==="registrar"&&<AbaRegistrar onRegistrar={reload} mes={mes}/>}
+        {aba==="clientes"&&<AbaClientes clientes={clientes} compras={compras} mes={mes}/>}
+        {aba==="parceiros"&&<AbaParceiros compras={compras} clientes={clientes} mes={mes}/>}
+        {aba==="dashboard"&&<AbaDashboard comprasMes={comprasMes} clientesMes={clientesMes} receita={receita} mes={mes}/>}
+      </div>
+    </div>
+  );
+}
+
+// ─── ABA REGISTRAR COMPRA ─────────────────────────────────────────────────────
+function AbaRegistrar({ onRegistrar, mes }) {
+  const [codigo, setCodigo] = useState("");
+  const [valor, setValor] = useState("");
+  const [cliente, setCliente] = useState(null);
+  const [sucesso, setSucesso] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const buscarCliente = () => {
+    setErro(""); setCliente(null); setSucesso(false);
+    const clientes = db.getClientes();
+    const c = clientes.find(x=>x.codigo.toUpperCase()===codigo.toUpperCase().trim());
+    if (c) setCliente(c);
+    else setErro("Código não encontrado. Verifique e tente novamente.");
+  };
+
+  const confirmar = () => {
+    if (!valor||isNaN(Number(valor))||Number(valor)<CFG.minCompra){setErro(`Valor mínimo R$${CFG.minCompra}`);return;}
+    const compra = {
+      id: Date.now()+"",
+      codigo: cliente.codigo, clienteId: cliente.id,
+      nomeCliente: cliente.nome, whatsappCliente: cliente.whatsapp,
+      parceiroId: cliente.parceiroId, parceiro: cliente.parceiro,
+      loja: cliente.loja, valor: Number(valor),
+      desconto: Math.round(Number(valor)*CFG.desconto/100),
+      mes, data: dataHoje(), registradoEm: agora(),
+    };
+    db.addCompra(compra);
+    onRegistrar();
+    setSucesso(true); setCodigo(""); setValor(""); setCliente(null);
+    setTimeout(()=>setSucesso(false),4000);
+  };
+
+  return (
+    <div>
+      <div style={{fontSize:15,fontWeight:700,color:"#1A2E0A",marginBottom:14}}>✅ Registrar compra com voucher</div>
+      {sucesso&&(
+        <div style={{background:"#27ae6020",border:"1px solid #27ae60",borderRadius:10,padding:"12px",marginBottom:14,textAlign:"center",fontSize:13,color:"#27ae60",fontWeight:700,fontFamily:"Arial,sans-serif"}}>
+          ✅ Compra registrada com sucesso!
+        </div>
+      )}
+      <Card style={{marginBottom:12}}>
+        <Input label="Código do voucher" value={codigo} onChange={v=>{setCodigo(v);setCliente(null);setErro("");}} placeholder="Ex: REV-AB12"/>
+        <Btn onClick={buscarCliente}>Buscar cliente</Btn>
+      </Card>
+
+      {erro&&<div style={{background:"#e74c3c18",border:"1px solid #e74c3c",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:12,color:"#e74c3c",fontFamily:"Arial,sans-serif"}}>⚠️ {erro}</div>}
+
+      {cliente&&(
+        <Card style={{borderLeft:"4px solid #4A5C2E",marginBottom:12}}>
+          <div style={{fontSize:11,color:"#4A5C2E",textTransform:"uppercase",letterSpacing:1,fontFamily:"Arial,sans-serif",fontWeight:700,marginBottom:6}}>Cliente encontrado</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#1A2E0A",fontFamily:"Georgia,serif"}}>{cliente.nome}</div>
+          <div style={{fontSize:12,color:"#888",fontFamily:"Arial,sans-serif"}}>{cliente.whatsapp} • Parceiro: {cliente.parceiro}</div>
+          <div style={{height:1,background:"#f0f0f0",margin:"12px 0"}}/>
+          <Input label={`Valor da compra (mín. R$${CFG.minCompra})`} value={valor} onChange={setValor} placeholder="0.00" type="number"/>
+          {valor&&Number(valor)>=CFG.minCompra&&(
+            <div style={{background:"#F0F7EB",borderRadius:8,padding:"8px 10px",marginBottom:12,fontSize:12,color:"#4A5C2E",fontFamily:"Arial,sans-serif",fontWeight:700}}>
+              💰 Desconto aplicado: {fmtR(Number(valor)*CFG.desconto/100)} ({CFG.desconto}%) → Cliente paga {fmtR(Number(valor)*(1-CFG.desconto/100))}
+            </div>
+          )}
+          <Btn onClick={confirmar}>✅ Confirmar compra</Btn>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── ABA CLIENTES ─────────────────────────────────────────────────────────────
+function AbaClientes({ clientes, compras, mes }) {
+  const [busca, setBusca] = useState("");
+  const clientesComDados = clientes
+    .filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase())||c.whatsapp.includes(busca))
+    .map(c=>{
+      const comprasMes = compras.filter(x=>x.clienteId===c.id&&x.mes===mes);
+      const totalMes = comprasMes.reduce((a,x)=>a+Number(x.valor),0);
+      const totalGeral = compras.filter(x=>x.clienteId===c.id).reduce((a,x)=>a+Number(x.valor),0);
+      return {...c, comprasMes:comprasMes.length, totalMes, totalGeral};
+    }).sort((a,b)=>b.comprasMes-a.comprasMes);
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{fontSize:15,fontWeight:700,color:"#1A2E0A"}}>👥 Clientes cadastrados</div>
+        <div style={{fontSize:12,color:"#888",fontFamily:"Arial,sans-serif"}}>{clientes.length} total</div>
+      </div>
+      <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome ou WhatsApp..."
+        style={{width:"100%",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"10px 14px",fontSize:13,fontFamily:"Arial,sans-serif",outline:"none",boxSizing:"border-box",marginBottom:12}}/>
+
+      {clientesComDados.length===0?
+        <Card style={{textAlign:"center",color:"#aaa",fontFamily:"Arial,sans-serif",fontSize:13}}>Nenhum cliente ainda.</Card>:
+        clientesComDados.map((c,i)=>(
+          <Card key={i} style={{marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",fontFamily:"Arial,sans-serif"}}>{c.nome}</div>
+                <div style={{fontSize:11,color:"#888",fontFamily:"Arial,sans-serif"}}>{c.whatsapp}</div>
+                <div style={{fontSize:11,color:"#4A5C2E",fontFamily:"Arial,sans-serif",marginTop:2}}>🏋️ {c.parceiro} • {c.loja}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,color:"#888",fontFamily:"Arial,sans-serif"}}>Compras no mês</div>
+                <div style={{fontSize:22,fontWeight:700,color:"#4A5C2E",fontFamily:"Arial,sans-serif"}}>{c.comprasMes}</div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[
+                {label:"Receita no mês",valor:fmtR(c.totalMes),cor:"#4A5C2E"},
+                {label:"Receita total",valor:fmtR(c.totalGeral),cor:"#1A5C8B"},
+              ].map((m,j)=>(
+                <div key={j} style={{background:"#F9F9F9",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:14,fontWeight:700,color:m.cor,fontFamily:"Arial,sans-serif"}}>{m.valor}</div>
+                  <div style={{fontSize:10,color:"#aaa",fontFamily:"Arial,sans-serif"}}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))
+      }
+    </div>
+  );
+}
+
+// ─── ABA PARCEIROS ────────────────────────────────────────────────────────────
+function AbaParceiros({ compras, clientes, mes }) {
+  const parceirosData = PARCEIROS.map(p=>{
+    const comprasMes = compras.filter(x=>x.parceiroId===p.id&&x.mes===mes);
+    const totalMes = comprasMes.reduce((a,x)=>a+Number(x.valor),0);
+    const totalGeral = compras.filter(x=>x.parceiroId===p.id).reduce((a,x)=>a+Number(x.valor),0);
+    const clientesMes = clientes.filter(x=>x.parceiroId===p.id&&x.mes===mes).length;
+    const meta = calcMeta(comprasMes.length);
+    const prox = proxMeta(comprasMes.length);
+    return {...p, comprasMes:comprasMes.length, totalMes, totalGeral, clientesMes, meta, prox};
+  }).sort((a,b)=>b.comprasMes-a.comprasMes);
+
+  return (
+    <div>
+      <div style={{fontSize:15,fontWeight:700,color:"#1A2E0A",marginBottom:14}}>🏆 Performance dos Parceiros — {mes}</div>
+      {parceirosData.map((p,i)=>(
+        <Card key={p.id} style={{marginBottom:12,borderTop:`3px solid ${i===0?"#FFD700":i===1?"#C0C0C0":i===2?"#CD7F32":p.cor}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <span style={{fontSize:20}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":tipoIcon(p.tipo)}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",fontFamily:"Arial,sans-serif"}}>{p.nome}</div>
+              <div style={{fontSize:11,color:"#888",fontFamily:"Arial,sans-serif"}}>{p.tipo} • Loja {p.loja}</div>
+            </div>
+            {p.meta?
+              <div style={{background:`${p.meta.cor}20`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,color:p.meta.cor}}>{p.meta.icon} {p.meta.label}</div>:
+              <div style={{background:"#f5f5f5",borderRadius:20,padding:"3px 10px",fontSize:11,color:"#ccc",fontFamily:"Arial,sans-serif"}}>Sem meta</div>
+            }
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:10}}>
+            {[
+              {label:"Compras",valor:p.comprasMes,cor:"#4A5C2E"},
+              {label:"Clientes",valor:p.clientesMes,cor:"#1A5C8B"},
+              {label:"Receita mês",valor:fmtR(p.totalMes),cor:"#2E7D32"},
+              {label:"Receita total",valor:fmtR(p.totalGeral),cor:"#E65100"},
+            ].map((m,j)=>(
+              <div key={j} style={{background:"#F9F9F9",borderRadius:8,padding:"8px 4px",textAlign:"center"}}>
+                <div style={{fontSize:13,fontWeight:700,color:m.cor,fontFamily:"Arial,sans-serif"}}>{m.valor}</div>
+                <div style={{fontSize:9,color:"#aaa",fontFamily:"Arial,sans-serif"}}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+          <MetaBar compras={p.comprasMes}/>
+          {p.meta?.compras>=40&&(
+            <div style={{marginTop:8,background:"linear-gradient(135deg,#1A2E0A,#2C3E1A)",borderRadius:8,padding:"7px 10px",display:"flex",alignItems:"center",gap:6}}>
+              <span>💎</span>
+              <span style={{fontSize:11,color:"#A8D070",fontFamily:"Arial,sans-serif",fontWeight:700}}>Na corrida para a Certificação Revita Elite!</span>
+            </div>
+          )}
+          {p.meta&&(
+            <div style={{marginTop:8,background:"#FFF8E1",borderRadius:8,padding:"7px 10px",fontSize:11,color:"#E65100",fontFamily:"Arial,sans-serif",fontWeight:700}}>
+              💰 Crédito a pagar: R${p.meta.credito} em produtos
+            </div>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// ─── ABA DASHBOARD ────────────────────────────────────────────────────────────
+function AbaDashboard({ comprasMes, clientesMes, receita, mes }) {
+  const descontoTotal = comprasMes.reduce((a,c)=>a+Number(c.desconto||0),0);
+  const mediaCompra = comprasMes.length ? receita/comprasMes.length : 0;
+  const porParceiro = PARCEIROS.map(p=>({
+    ...p,
+    compras: comprasMes.filter(x=>x.parceiroId===p.id).length,
+    receita: comprasMes.filter(x=>x.parceiroId===p.id).reduce((a,x)=>a+Number(x.valor),0),
+  })).sort((a,b)=>b.receita-a.receita);
+
+  const maxReceita = Math.max(...porParceiro.map(x=>x.receita),1);
+
+  return (
+    <div>
+      <div style={{fontSize:15,fontWeight:700,color:"#1A2E0A",marginBottom:14}}>📊 Dashboard — {mes}</div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+        {[
+          {label:"Compras no mês",valor:comprasMes.length,icon:"🛒",cor:"#4A5C2E"},
+          {label:"Clientes novos",valor:clientesMes.length,icon:"👥",cor:"#1A5C8B"},
+          {label:"Receita gerada",valor:fmtR(receita),icon:"💰",cor:"#2E7D32"},
+          {label:"Descontos dados",valor:fmtR(descontoTotal),icon:"🎟️",cor:"#E65100"},
+          {label:"Ticket médio",valor:fmtR(mediaCompra),icon:"📈",cor:"#8B4A6B"},
+          {label:"Receita líquida",valor:fmtR(receita-descontoTotal),icon:"✅",cor:"#2C3E1A"},
+        ].map((m,i)=>(
+          <Card key={i} style={{borderTop:`3px solid ${m.cor}`}}>
+            <div style={{fontSize:20,marginBottom:4}}>{m.icon}</div>
+            <div style={{fontSize:18,fontWeight:700,color:m.cor,fontFamily:"Arial,sans-serif"}}>{m.valor}</div>
+            <div style={{fontSize:11,color:"#888",fontFamily:"Arial,sans-serif"}}>{m.label}</div>
+          </Card>
+        ))}
+      </div>
+
+      <Card style={{marginBottom:16}}>
+        <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",marginBottom:14}}>Receita por parceiro</div>
+        {porParceiro.map((p,i)=>(
+          <div key={p.id} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,fontFamily:"Arial,sans-serif",color:"#333",fontWeight:600}}>{p.nome}</span>
+              <span style={{fontSize:12,fontFamily:"Arial,sans-serif",color:"#4A5C2E",fontWeight:700}}>{fmtR(p.receita)} ({p.compras} compras)</span>
+            </div>
+            <div style={{height:8,background:"#f0f0f0",borderRadius:4}}>
+              <div style={{height:8,background:p.cor,borderRadius:4,width:`${(p.receita/maxReceita)*100}%`,transition:"width .3s"}}/>
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        <div style={{fontSize:14,fontWeight:700,color:"#1A2E0A",marginBottom:10}}>💎 Status das metas</div>
+        {PARCEIROS.map((p,i)=>{
+          const n = comprasMes.filter(x=>x.parceiroId===p.id).length;
+          const m = calcMeta(n);
+          return (
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<PARCEIROS.length-1?"1px solid #f0f0f0":"none"}}>
+              <span style={{fontSize:16}}>{tipoIcon(p.tipo)}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#1A2E0A",fontFamily:"Arial,sans-serif"}}>{p.nome}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:12,fontFamily:"Arial,sans-serif",color:"#888"}}>{n} compras</span>
+                {m?<div style={{background:`${m.cor}20`,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700,color:m.cor}}>{m.icon} R${m.credito}</div>:
+                  <div style={{background:"#f5f5f5",borderRadius:20,padding:"2px 8px",fontSize:10,color:"#ccc",fontFamily:"Arial,sans-serif"}}>—</div>}
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+    </div>
+  );
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [tela, setTela] = useState("home");
+  const [parceiroAtivo, setParceiroAtivo] = useState(null);
+  const [dadosVoucher, setDadosVoucher] = useState(null);
+
+  const props = { setTela, setParceiroAtivo, setDadosVoucher };
+
+  if (tela==="cadastro"&&parceiroAtivo)  return <PaginaCadastro parceiro={parceiroAtivo} setTela={setTela} setDadosVoucher={setDadosVoucher}/>;
+  if (tela==="voucher"&&dadosVoucher)    return <PaginaVoucher dados={dadosVoucher} setTela={setTela}/>;
+  if (tela==="cliente-voucher-busca")    return <PaginaBuscaVoucher setTela={setTela} setDadosVoucher={setDadosVoucher}/>;
+  if (tela==="parceiro-login")           return <PaginaParceiroLogin setTela={setTela} setParceiroAtivo={setParceiroAtivo}/>;
+  if (tela==="parceiro-portal"&&parceiroAtivo) return <PaginaParceiroPortal parceiro={parceiroAtivo} setTela={setTela}/>;
+  if (tela==="admin-login")              return <PaginaAdminLogin setTela={setTela}/>;
+  if (tela==="admin")                    return <PaginaAdmin setTela={setTela}/>;
+  return <PaginaHome setTela={setTela} setParceiroAtivo={setParceiroAtivo}/>;
+}
+
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
