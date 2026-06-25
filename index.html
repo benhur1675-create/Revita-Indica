@@ -68,13 +68,23 @@ const proxMeta = n => { for(const x of CFG.metas) if(n<x.compras) return x; retu
 const fmtR = n => `R$${Number(n).toFixed(0)}`;
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
+const SUPA_URL = "https://ajubuzuvixbxwftrkzgl.supabase.co/rest/v1";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdWJ1enV2aXhieHdmdHJremdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNDk1OTIsImV4cCI6MjA5NzkyNTU5Mn0.sWm_95zAa8v-QYHj23bdqZGg4A53XhqYk1y5Rh067Iw";
+const H = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY, "Content-Type": "application/json" };
+
 const db = {
-  get(k) { try { const r=localStorage.getItem(k); return r?JSON.parse(r):[]; } catch{ return []; } },
-  set(k,v) { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} },
-  addCliente(c) { const l=db.get('clientes'); l.unshift(c); db.set('clientes',l); },
-  addCompra(c) { const l=db.get('compras'); l.unshift(c); db.set('compras',l); },
-  getClientes() { return db.get('clientes'); },
-  getCompras() { return db.get('compras'); },
+  async getClientes() {
+    try { const r = await fetch(SUPA_URL+"/clientes?order=cadastroAt.desc", {headers:H}); return r.ok ? await r.json() : []; } catch { return []; }
+  },
+  async getCompras() {
+    try { const r = await fetch(SUPA_URL+"/compras?order=registradoEm.desc", {headers:H}); return r.ok ? await r.json() : []; } catch { return []; }
+  },
+  async addCliente(c) {
+    try { await fetch(SUPA_URL+"/clientes", {method:"POST", headers:{...H,"Prefer":"return=minimal"}, body:JSON.stringify(c)}); } catch {}
+  },
+  async addCompra(c) {
+    try { await fetch(SUPA_URL+"/compras", {method:"POST", headers:{...H,"Prefer":"return=minimal"}, body:JSON.stringify(c)}); } catch {}
+  },
 };
 
 // ─── SHARED UI ────────────────────────────────────────────────────────────────
@@ -226,7 +236,7 @@ function PaginaCadastro({ parceiro, setTela, setDadosVoucher }) {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
 
-  const submit = () => {
+  const submit = async () => {
     if (!nome.trim()||nome.trim().length<3){setErro("Digite seu nome completo");return;}
     if (wpp.replace(/\D/g,'').length<10){setErro("WhatsApp inválido — inclua o DDD");return;}
     setErro(""); setLoading(true);
@@ -234,7 +244,7 @@ function PaginaCadastro({ parceiro, setTela, setDadosVoucher }) {
     const cliente = { id: codigo, codigo, nome:nome.trim(), whatsapp:wpp.trim(),
       parceiroId:parceiro.id, parceiro:parceiro.nome, loja:parceiro.loja,
       mes:mesAtual(), data:dataHoje(), cadastroAt:agora() };
-    db.addCliente(cliente);
+    await db.addCliente(cliente);
     // Notify WhatsApp
     const msg = encodeURIComponent(`🌿 *Nova Indicação — Revita Indica*\n\n👤 Cliente: ${nome.trim()}\n🏋️ Parceiro: ${parceiro.nome}\n🎟️ Código: ${codigo}\n💰 ${CFG.desconto}% de desconto em compras acima de R$${CFG.minCompra}\n\n✅ Confirme para registrar!`);
     window.open(`https://wa.me/${CFG.whatsapp}?text=${msg}`,'_blank');
@@ -317,8 +327,8 @@ function PaginaBuscaVoucher({ setTela, setDadosVoucher }) {
   const [wpp, setWpp] = useState("");
   const [erro, setErro] = useState("");
 
-  const buscar = () => {
-    const clientes = db.getClientes();
+  const buscar = async () => {
+    const clientes = await db.getClientes();
     const nums = wpp.replace(/\D/g,'');
     const c = clientes.find(x => x.whatsapp.replace(/\D/g,'').includes(nums) && nums.length>=8);
     if (c) { setDadosVoucher(c); setTela('voucher'); }
@@ -390,9 +400,9 @@ function PaginaParceiroPortal({ parceiro, setTela }) {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(linkCadastro)}&size=200x200&color=2C3E1A&bgcolor=FFFFFF&margin=10`;
 
   useEffect(()=>{
-    const load = () => {
-      const c = db.getCompras();
-      const cl = db.getClientes();
+    const load = async () => {
+      const c = await db.getCompras();
+      const cl = await db.getClientes();
       const ta = db.getCompras();
       setCompras(c.filter(x=>x.parceiroId===parceiro.id&&x.mes===mes));
       setClientes(cl.filter(x=>x.parceiroId===parceiro.id));
@@ -552,9 +562,9 @@ function PaginaAdmin({ setTela }) {
   const [clientes, setClientes] = useState([]);
   const mes = mesAtual();
 
-  const reload = useCallback(() => {
-    setCompras(db.getCompras());
-    setClientes(db.getClientes());
+  const reload = useCallback(async () => {
+    setCompras(await db.getCompras());
+    setClientes(await db.getClientes());
   },[]);
 
   useEffect(()=>{ reload(); },[reload]);
@@ -607,15 +617,15 @@ function AbaRegistrar({ onRegistrar, mes }) {
   const [sucesso, setSucesso] = useState(false);
   const [erro, setErro] = useState("");
 
-  const buscarCliente = () => {
+  const buscarCliente = async () => {
     setErro(""); setCliente(null); setSucesso(false);
-    const clientes = db.getClientes();
+    const clientes = await db.getClientes();
     const c = clientes.find(x=>x.codigo.toUpperCase()===codigo.toUpperCase().trim());
     if (c) setCliente(c);
     else setErro("Código não encontrado. Verifique e tente novamente.");
   };
 
-  const confirmar = () => {
+  const confirmar = async () => {
     if (!valor||isNaN(Number(valor))||Number(valor)<CFG.minCompra){setErro(`Valor mínimo R$${CFG.minCompra}`);return;}
     const compra = {
       id: Date.now()+"",
@@ -626,8 +636,8 @@ function AbaRegistrar({ onRegistrar, mes }) {
       desconto: Math.round(Number(valor)*CFG.desconto/100),
       mes, data: dataHoje(), registradoEm: agora(),
     };
-    db.addCompra(compra);
-    onRegistrar();
+    await db.addCompra(compra);
+    await onRegistrar();
     setSucesso(true); setCodigo(""); setValor(""); setCliente(null);
     setTimeout(()=>setSucesso(false),4000);
   };
