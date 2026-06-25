@@ -8,11 +8,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; background: #F7F5F0; }
-    select, input, button { font-family: Arial, sans-serif; }
-  </style>
+  <style>* {box-sizing:border-box;margin:0;padding:0;} body{font-family:Arial,sans-serif;background:#F7F5F0;} select,input,button{font-family:Arial,sans-serif;}</style>
 </head>
 <body>
   <div id="root"></div>
@@ -68,24 +64,23 @@ const proxMeta = n => { for(const x of CFG.metas) if(n<x.compras) return x; retu
 const fmtR = n => `R$${Number(n).toFixed(0)}`;
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
-const SUPA_URL = "https://ajubuzuvixbxwftrkzgl.supabase.co/rest/v1";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdWJ1enV2aXhieHdmdHJremdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNDk1OTIsImV4cCI6MjA5NzkyNTU5Mn0.sWm_95zAa8v-QYHj23bdqZGg4A53XhqYk1y5Rh067Iw";
-const H = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY, "Content-Type": "application/json" };
-
-const HW = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY, "Content-Type": "application/json", "Prefer": "return=minimal" };
+const SURL = "https://ajubuzuvixbxwftrkzgl.supabase.co/rest/v1";
+const SKEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdWJ1enV2aXhieHdmdHJremdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNDk1OTIsImV4cCI6MjA5NzkyNTU5Mn0.sWm_95zAa8v-QYHj23bdqZGg4A53XhqYk1y5Rh067Iw";
+const SH = {"apikey":SKEY,"Authorization":"Bearer "+SKEY,"Content-Type":"application/json","Prefer":"return=minimal"};
+const SHG = {"apikey":SKEY,"Authorization":"Bearer "+SKEY};
 
 const db = {
-  async getClientes() {
-    try { const r = await fetch(SUPA_URL+"/clientes?order=cadastroAt.desc", {headers:H}); return r.ok ? await r.json() : []; } catch(e) { return []; }
+  getClientes() {
+    return fetch(SURL+"/clientes?order=cadastroAt.desc",{headers:SHG}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
   },
-  async getCompras() {
-    try { const r = await fetch(SUPA_URL+"/compras?order=registradoEm.desc", {headers:H}); return r.ok ? await r.json() : []; } catch(e) { return []; }
+  getCompras() {
+    return fetch(SURL+"/compras?order=registradoEm.desc",{headers:SHG}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];});
   },
-  async addCliente(cl) {
-    try { await fetch(SUPA_URL+"/clientes", {method:"POST", headers:HW, body:JSON.stringify(cl)}); } catch(e) {}
+  addCliente(cl) {
+    return fetch(SURL+"/clientes",{method:"POST",headers:SH,body:JSON.stringify(cl)}).catch(function(){});
   },
-  async addCompra(cp) {
-    try { await fetch(SUPA_URL+"/compras", {method:"POST", headers:HW, body:JSON.stringify(cp)}); } catch(e) {}
+  addCompra(cp) {
+    return fetch(SURL+"/compras",{method:"POST",headers:SH,body:JSON.stringify(cp)}).catch(function(){});
   },
 };
 
@@ -639,7 +634,7 @@ function AbaRegistrar({ onRegistrar, mes }) {
       mes, data: dataHoje(), registradoEm: agora(),
     };
     await db.addCompra(compra);
-    await onRegistrar();
+    onRegistrar();
     setSucesso(true); setCodigo(""); setValor(""); setCliente(null);
     setTimeout(()=>setSucesso(false),4000);
   };
@@ -882,8 +877,7 @@ function App() {
 }
 
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
