@@ -72,18 +72,20 @@ const SUPA_URL = "https://ajubuzuvixbxwftrkzgl.supabase.co/rest/v1";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdWJ1enV2aXhieHdmdHJremdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNDk1OTIsImV4cCI6MjA5NzkyNTU5Mn0.sWm_95zAa8v-QYHj23bdqZGg4A53XhqYk1y5Rh067Iw";
 const H = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY, "Content-Type": "application/json" };
 
+const HW = { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY, "Content-Type": "application/json", "Prefer": "return=minimal" };
+
 const db = {
   async getClientes() {
-    try { const r = await fetch(SUPA_URL+"/clientes?order=cadastroAt.desc", {headers:H}); return r.ok ? await r.json() : []; } catch { return []; }
+    try { const r = await fetch(SUPA_URL+"/clientes?order=cadastroAt.desc", {headers:H}); return r.ok ? await r.json() : []; } catch(e) { return []; }
   },
   async getCompras() {
-    try { const r = await fetch(SUPA_URL+"/compras?order=registradoEm.desc", {headers:H}); return r.ok ? await r.json() : []; } catch { return []; }
+    try { const r = await fetch(SUPA_URL+"/compras?order=registradoEm.desc", {headers:H}); return r.ok ? await r.json() : []; } catch(e) { return []; }
   },
-  async addCliente(c) {
-    try { await fetch(SUPA_URL+"/clientes", {method:"POST", headers:{...H,"Prefer":"return=minimal"}, body:JSON.stringify(c)}); } catch {}
+  async addCliente(cl) {
+    try { await fetch(SUPA_URL+"/clientes", {method:"POST", headers:HW, body:JSON.stringify(cl)}); } catch(e) {}
   },
-  async addCompra(c) {
-    try { await fetch(SUPA_URL+"/compras", {method:"POST", headers:{...H,"Prefer":"return=minimal"}, body:JSON.stringify(c)}); } catch {}
+  async addCompra(cp) {
+    try { await fetch(SUPA_URL+"/compras", {method:"POST", headers:HW, body:JSON.stringify(cp)}); } catch(e) {}
   },
 };
 
@@ -142,8 +144,8 @@ function MetaBar({ compras, label }) {
   const m = proxMeta(compras);
   const atual = calcMeta(compras);
   if (!m && !atual) return null;
-  const base = atual?.compras||0;
-  const target = m?.compras||CFG.metas[CFG.metas.length-1].compras;
+  const base = (atual ? atual.compras : 0);
+  const target = m ? m.compras : CFG.metas[CFG.metas.length-1].compras;
   const pct = m ? Math.min(((compras-base)/(m.compras-base))*100,100) : 100;
   return (
     <div style={{background:"#F0F7EB",borderRadius:10,padding:"10px 12px"}}>
@@ -152,7 +154,7 @@ function MetaBar({ compras, label }) {
       </div>}
       {!m && <div style={{fontSize:12,color:"#E65100",fontFamily:"Arial,sans-serif",fontWeight:700,marginBottom:5}}>🥇 Meta Ouro atingida!</div>}
       <div style={{height:6,background:"#C8E6C9",borderRadius:3}}>
-        <div style={{height:6,background:atual?.cor||"#4A5C2E",borderRadius:3,width:`${pct}%`,transition:"width .3s"}}/>
+        <div style={{height:6,background:(atual ? atual.cor : null)||"#4A5C2E",borderRadius:3,width:`${pct}%`,transition:"width .3s"}}/>
       </div>
       <div style={{fontSize:10,color:"#888",fontFamily:"Arial,sans-serif",marginTop:4}}>
         {compras}/{target} compras
@@ -467,7 +469,7 @@ function PaginaParceiroPortal({ parceiro, setTela }) {
           <img src={qrUrl} alt="QR Code" style={{width:180,height:180,borderRadius:12,border:"2px solid #E8F5E9",margin:"0 auto",display:"block"}}/>
           <div style={{marginTop:12,background:"#F5F5F5",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#555",fontFamily:"monospace",wordBreak:"break-all"}}>{linkCadastro}</div>
           <div style={{marginTop:12,display:"flex",gap:8}}>
-            <button onClick={()=>navigator.clipboard?.writeText(linkCadastro)}
+            <button onClick={()=>{ if(navigator.clipboard) navigator.clipboard.writeText(linkCadastro); }}
               style={{flex:1,background:"#F0F7EB",border:"1px solid #4A5C2E33",borderRadius:8,padding:"8px",fontSize:11,color:"#4A5C2E",cursor:"pointer",fontFamily:"Arial,sans-serif",fontWeight:700}}>
               📋 Copiar link
             </button>
@@ -772,7 +774,7 @@ function AbaParceiros({ compras, clientes, mes }) {
             ))}
           </div>
           <MetaBar compras={p.comprasMes}/>
-          {p.meta?.compras>=40&&(
+          {(p.meta && p.meta.compras>=40)&&(
             <div style={{marginTop:8,background:"linear-gradient(135deg,#1A2E0A,#2C3E1A)",borderRadius:8,padding:"7px 10px",display:"flex",alignItems:"center",gap:6}}>
               <span>💎</span>
               <span style={{fontSize:11,color:"#A8D070",fontFamily:"Arial,sans-serif",fontWeight:700}}>Na corrida para a Certificação Revita Elite!</span>
